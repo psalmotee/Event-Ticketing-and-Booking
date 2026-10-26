@@ -31,6 +31,23 @@ function requireCents(value, name) {
   return value;
 }
 
+function requireDate(value, name) {
+  if (typeof value !== 'string'
+    || !/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(value)
+    || Number.isNaN(Date.parse(value))) {
+    throw new DomainError('VALIDATION', `${name} must be a valid ISO date`);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1
+      || date.getUTCDate() !== day) {
+      throw new DomainError('VALIDATION', `${name} must be a valid ISO date`);
+    }
+  }
+  return value;
+}
+
 function getEvent(store, eventId) {
   const event = store.events.get(eventId);
   if (!event) {
@@ -58,8 +75,15 @@ export function createStore() {
 export function createEvent(store, details) {
   requireObject(store, 'store');
   requireObject(details, 'event');
-  const name = requireText(details.name, 'event name');
-  const event = { id: newId(), name, tiers: new Map() };
+  const usesBuildTwoShape = ['title', 'city', 'venue', 'date'].some((key) => key in details);
+  const name = requireText(details.title ?? details.name, 'event title');
+  const event = { id: newId(), name, tiers: new Map(), published: false };
+  if (usesBuildTwoShape) {
+    event.title = name;
+    event.city = requireText(details.city, 'event city');
+    event.venue = requireText(details.venue, 'event venue');
+    event.date = requireDate(details.date, 'event date');
+  }
   store.events.set(event.id, event);
   return event;
 }
@@ -149,4 +173,40 @@ export function joinWaitlist(store, details) {
   const entry = { id: newId(), ...request, status: 'WAITING' };
   tier.waitlist.enqueue(entry);
   return entry;
+}
+
+export function publishEvent(store, eventId) {
+  requireObject(store, 'store');
+  const event = getEvent(store, eventId);
+  if (event.tiers.size === 0) {
+    throw new DomainError('INVALID_STATE', 'An event must have at least one ticket tier');
+  }
+  event.published = true;
+  return event;
+}
+
+export function listEventSummaries(store, { publishedOnly = true } = {}) {
+  requireObject(store, 'store');
+  if (typeof publishedOnly !== 'boolean') {
+    throw new DomainError('VALIDATION', 'publishedOnly must be a boolean');
+  }
+  return [...store.events.values()]
+    .filter((event) => !publishedOnly || event.published === true)
+    .map((event) => ({
+      id: event.id,
+      title: event.title ?? event.name,
+      name: event.name,
+      city: event.city,
+      venue: event.venue,
+      date: event.date,
+      published: event.published === true,
+      tiers: [...event.tiers.values()].map((tier) => ({
+        id: tier.id,
+        name: tier.name,
+        priceCents: tier.priceCents,
+        capacity: tier.capacity,
+        available: tier.available,
+        sold: tier.capacity - tier.available,
+      })),
+    }));
 }
