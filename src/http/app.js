@@ -2,6 +2,20 @@ import { createReadStream } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { Router } from './router.js';
+import { DomainError } from '../domain/errors.js';
+import { createMemoryRepository } from '../repositories/memory.js';
+import {
+  addTierService,
+  createEventService,
+  publishEventService,
+  searchEventService,
+} from '../services/eventService.js';
+import {
+  cancelBookingService,
+  createBookingService,
+  payBookingService,
+} from '../services/bookingService.js';
+import { createMockPaymentGateway } from '../lib/mockPaymentGateway.js';
 
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -23,6 +37,80 @@ function sendJson(response, status, body) {
 
 function sendError(response, status, code, message) {
   sendJson(response, status, { error: { code, message } });
+}
+
+function errorStatus(code) {
+  if (code === 'VALIDATION' || code === 'BAD_JSON') return 400;
+  if (code === 'NOT_FOUND') return 404;
+  if (code === 'FORBIDDEN') return 403;
+  if (code === 'PAYMENT_DECLINED') return 402;
+  if (['SOLD_OUT', 'INVALID_STATE', 'INVALID_TRANSITION', 'ALREADY_CANCELLED'].includes(code)) {
+    return 409;
+  }
+  return 500;
+}
+
+function eventResponse(event) {
+  return {
+    ...event,
+    tiers: [...event.tiers.values()],
+  };
+}
+
+function registerApiRoutes(router, repository, paymentGateway) {
+  router.add('POST', '/api/events', async (_request, response, _params, body) => {
+    const event = await createEventService(repository, body);
+    sendJson(response, 201, eventResponse(event));
+  });
+  router.add('POST', '/api/events/:id/tiers', async (_request, response, params, body) => {
+    const tier = await addTierService(repository, params.id, body);
+    sendJson(response, 201, tier);
+  });
+  router.add('POST', '/api/events/:id/publish', async (_request, response, params) => {
+    const event = await publishEventService(repository, params.id);
+    sendJson(response, 200, eventResponse(event));
+  });
+  router.get('/api/events', async (request, response) => {
+    const url = new URL(request.url, 'http://localhost');
+    const criteria = {};
+    for (const key of ['q', 'city', 'from', 'to']) {
+      if (url.searchParams.has(key)) criteria[key] = url.searchParams.get(key);
+    }
+    if (url.searchParams.has('maxPriceCents')) {
+      criteria.maxPriceCents = Number(url.searchParams.get('maxPriceCents'));
+    }
+    if (url.searchParams.get('onlyAvailable') !== null) {
+      criteria.onlyAvailable = url.searchParams.get('onlyAvailable') === 'true';
+    }
+    const events = await searchEventService(
+      repository,
+      criteria,
+      url.searchParams.get('sortBy') ?? url.searchParams.get('sort') ?? 'date',
+    );
+    sendJson(response, 200, events);
+  });
+  router.add('POST', '/api/bookings', async (request, response, _params, body) => {
+    const booking = await createBookingService(repository, request.headers['x-user-id'], body);
+    sendJson(response, 201, booking);
+  });
+  router.add('POST', '/api/bookings/:reference/pay', async (request, response, params, body) => {
+    const booking = await payBookingService(
+      repository,
+      paymentGateway,
+      request.headers['x-user-id'],
+      params.reference,
+      body,
+    );
+    sendJson(response, 200, booking);
+  });
+  router.add('POST', '/api/bookings/:reference/cancel', async (request, response, params) => {
+    const booking = await cancelBookingService(
+      repository,
+      request.headers['x-user-id'],
+      params.reference,
+    );
+    sendJson(response, 200, booking);
+  });
 }
 
 async function readJsonBody(request) {
@@ -98,10 +186,16 @@ async function serveStatic(request, response, publicRoot, pathname) {
   }
 }
 
-export function createApp({ publicDir = resolve('public'), router = new Router() } = {}) {
+export function createApp({
+  publicDir = resolve('public'),
+  router = new Router(),
+  repository = createMemoryRepository(),
+  paymentGateway = createMockPaymentGateway(),
+} = {}) {
   router.get('/health', (_request, response) => {
     sendJson(response, 200, { status: 'ok' });
   });
+  registerApiRoutes(router, repository, paymentGateway);
 
   return async function app(request, response) {
     try {
@@ -129,6 +223,10 @@ export function createApp({ publicDir = resolve('public'), router = new Router()
     } catch (error) {
       if (error?.code === 'BAD_JSON') {
         sendError(response, 400, 'BAD_JSON', error.message);
+        return;
+      }
+      if (error instanceof DomainError) {
+        sendError(response, errorStatus(error.code), error.code, error.message);
         return;
       }
       if (!response.headersSent) {
