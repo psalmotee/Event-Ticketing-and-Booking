@@ -21,17 +21,27 @@ function tierCard(event, tier) {
     max: String(Math.min(10, tier.available)),
     value: "1",
   });
-  const buy = el("button", {
-    type: "button",
-    className: "button",
-    disabled: soldOut,
-  }, soldOut ? "Sold out" : "Choose tickets");
+  const buy = el(
+    "button",
+    {
+      type: "button",
+      className: "button",
+      disabled: soldOut,
+    },
+    soldOut ? "Sold out" : "Choose tickets",
+  );
 
   buy.addEventListener("click", async () => {
     const selectedQuantity = Number(quantity.value);
-    if (!Number.isInteger(selectedQuantity) || selectedQuantity < 1
-      || selectedQuantity > 10 || selectedQuantity > tier.available) {
-      quantity.setCustomValidity(`Choose between 1 and ${Math.min(10, tier.available)} tickets.`);
+    if (
+      !Number.isInteger(selectedQuantity) ||
+      selectedQuantity < 1 ||
+      selectedQuantity > 10 ||
+      selectedQuantity > tier.available
+    ) {
+      quantity.setCustomValidity(
+        `Choose between 1 and ${Math.min(10, tier.available)} tickets.`,
+      );
       quantity.reportValidity();
       return;
     }
@@ -48,43 +58,84 @@ function tierCard(event, tier) {
     } catch (error) {
       buy.disabled = false;
       buy.textContent = "Choose tickets";
-      document.querySelector("#checkout-error").replaceChildren(
-        el("p", { className: "error", textContent: error.message }),
-      );
+      document
+        .querySelector("#checkout-error")
+        .replaceChildren(
+          el("p", { className: "error", textContent: error.message }),
+        );
     }
   });
 
-  return el("article", { className: `tier-card${soldOut ? " tier-card--sold-out" : ""}` }, [
-    el("div", { className: "tier-card__main" }, [
-      el("span", { className: "tier-card__badge", textContent: soldOut ? "Unavailable" : "Available" }),
-      el("h3", { textContent: tier.name }),
-      el("p", { className: "seat-count", textContent: soldOut ? "Sold out" : `${tier.available} seats remaining` }),
-    ]),
-    el("div", { className: "tier-card__purchase" }, [
-      el("p", { className: "tier-card__price", textContent: formatPrice(tier.priceCents) }),
-      el("div", { className: "tier-actions" }, [
-        el("div", { className: "field field--compact" }, [
-          el("label", { for: quantity.id }, "Qty"),
-          quantity,
-        ]),
-        buy,
+  return el(
+    "article",
+    { className: `tier-card${soldOut ? " tier-card--sold-out" : ""}` },
+    [
+      el("div", { className: "tier-card__main" }, [
+        el("span", {
+          className: "tier-card__badge",
+          textContent: soldOut ? "Unavailable" : "Available",
+        }),
+        el("h3", { textContent: tier.name }),
+        el("p", {
+          className: "seat-count",
+          textContent: soldOut
+            ? "Sold out"
+            : `${tier.available} seats remaining`,
+        }),
       ]),
-    ]),
-  ]);
+      el("div", { className: "tier-card__purchase" }, [
+        el("p", {
+          className: "tier-card__price",
+          textContent: formatPrice(tier.priceCents),
+        }),
+        el("div", { className: "tier-actions" }, [
+          el("div", { className: "field field--compact" }, [
+            el("label", { for: quantity.id }, "Qty"),
+            quantity,
+          ]),
+          buy,
+        ]),
+      ]),
+    ],
+  );
 }
 
 function renderCheckout(event, tier, booking) {
   const checkout = document.querySelector("#checkout");
   const countdown = el("p", { className: "countdown", "aria-live": "polite" });
   const paymentForm = el("form", { className: "payment-form" });
-  const cardName = el("input", { id: "card-name", name: "cardName", type: "text", autocomplete: "cc-name", required: true });
-  const cardNumber = el("input", { id: "card-number", name: "cardNumber", type: "text", inputmode: "numeric", autocomplete: "cc-number", placeholder: "Use 4000 0000 0000 0002 to decline", required: true });
+  const cardName = el("input", {
+    id: "card-name",
+    name: "cardName",
+    type: "text",
+    autocomplete: "cc-name",
+    required: true,
+  });
+  const cardNumber = el("input", {
+    id: "card-number",
+    name: "cardNumber",
+    type: "text",
+    inputmode: "numeric",
+    autocomplete: "cc-number",
+    placeholder: "Use 4000 0000 0000 0002 to decline",
+    required: true,
+  });
   const error = el("div", { id: "payment-error", role: "alert" });
-  const payButton = el("button", { type: "submit", className: "button" }, "Pay now");
+  const payButton = el(
+    "button",
+    { type: "submit", className: "button" },
+    "Pay now",
+  );
 
   paymentForm.append(
-    el("div", { className: "field" }, [el("label", { for: "card-name" }, "Name on card"), cardName]),
-    el("div", { className: "field" }, [el("label", { for: "card-number" }, "Card number"), cardNumber]),
+    el("div", { className: "field" }, [
+      el("label", { for: "card-name" }, "Name on card"),
+      cardName,
+    ]),
+    el("div", { className: "field" }, [
+      el("label", { for: "card-number" }, "Card number"),
+      cardNumber,
+    ]),
     payButton,
   );
 
@@ -98,10 +149,16 @@ function renderCheckout(event, tier, booking) {
       checkout.replaceChildren(
         el("h2", { textContent: "Payment confirmed" }),
         el("p", { textContent: `Your booking ${booking.reference} is paid.` }),
-        el("a", { className: "button", href: "/index.html" }, "Browse more events"),
+        el(
+          "a",
+          { className: "button", href: "/index.html" },
+          "Browse more events",
+        ),
       );
     } catch (paymentError) {
-      error.replaceChildren(el("p", { className: "error", textContent: paymentError.message }));
+      error.replaceChildren(
+        el("p", { className: "error", textContent: paymentError.message }),
+      );
       payButton.disabled = false;
       payButton.textContent = "Try payment again";
     }
@@ -114,7 +171,9 @@ function renderCheckout(event, tier, booking) {
     countdown.textContent = `Seats held for ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
     if (remaining === 0) {
       clearInterval(timer);
-      paymentForm.querySelectorAll("button, input").forEach((control) => { control.disabled = true; });
+      paymentForm.querySelectorAll("button, input").forEach((control) => {
+        control.disabled = true;
+      });
       countdown.textContent = "Your seat hold has expired.";
     }
   }
@@ -124,7 +183,9 @@ function renderCheckout(event, tier, booking) {
 
   checkout.replaceChildren(
     el("h2", { textContent: "Checkout" }),
-    el("p", { textContent: `${booking.quantity} × ${tier.name} — ${formatPrice(booking.amountCents)}` }),
+    el("p", {
+      textContent: `${booking.quantity} × ${tier.name} — ${formatPrice(booking.amountCents)}`,
+    }),
     countdown,
     paymentForm,
     error,
@@ -137,7 +198,9 @@ async function init() {
     app.replaceChildren(el("h1", { textContent: "Event not found" }));
     return;
   }
-  app.replaceChildren(el("p", { className: "loading", textContent: "Loading event..." }));
+  app.replaceChildren(
+    el("p", { className: "loading", textContent: "Loading event..." }),
+  );
   try {
     const event = await getEvent(eventId);
     app.className = "page-shell event-page";
@@ -152,7 +215,10 @@ async function init() {
           el("p", { className: "eyebrow", textContent: event.city }),
           el("h1", { textContent: event.title }),
           el("div", { className: "event-facts" }, [
-            el("p", { className: "event-fact", textContent: dateLabel(event.date) }),
+            el("p", {
+              className: "event-fact",
+              textContent: dateLabel(event.date),
+            }),
             el("p", { className: "event-fact", textContent: event.venue }),
           ]),
         ]),
@@ -173,11 +239,18 @@ async function init() {
             ...event.tiers.map((tier) => tierCard(event, tier)),
           ]),
         ]),
-        el("aside", { id: "checkout", className: "checkout", "aria-live": "polite" }, [
-          el("p", { className: "eyebrow", textContent: "Secure checkout" }),
-          el("h2", { textContent: "Your booking" }),
-          el("p", { className: "muted", textContent: "Choose a ticket tier to continue." }),
-        ]),
+        el(
+          "aside",
+          { id: "checkout", className: "checkout", "aria-live": "polite" },
+          [
+            el("p", { className: "eyebrow", textContent: "Secure checkout" }),
+            el("h2", { textContent: "Your booking" }),
+            el("p", {
+              className: "muted",
+              textContent: "Choose a ticket tier to continue.",
+            }),
+          ],
+        ),
       ]),
     );
   } catch (error) {

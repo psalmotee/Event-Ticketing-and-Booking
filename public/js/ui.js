@@ -5,7 +5,8 @@ export function el(tag, props = {}, children = []) {
     if (key === "textContent") node.textContent = value;
     else if (key === "className") node.className = value;
     else if (key === "dataset") {
-      for (const [name, dataValue] of Object.entries(value)) node.dataset[name] = dataValue;
+      for (const [name, dataValue] of Object.entries(value))
+        node.dataset[name] = dataValue;
     } else if (key.startsWith("on") && typeof value === "function") {
       node.addEventListener(key.slice(2).toLowerCase(), value);
     } else if (typeof value === "boolean") {
@@ -16,7 +17,9 @@ export function el(tag, props = {}, children = []) {
   }
   for (const child of Array.isArray(children) ? children : [children]) {
     if (child == null) continue;
-    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    node.append(
+      child instanceof Node ? child : document.createTextNode(String(child)),
+    );
   }
   return node;
 }
