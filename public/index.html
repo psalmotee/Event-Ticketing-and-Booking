@@ -1,5 +1,24 @@
 <!doctype html>
 <html lang="en">
-  <head><meta charset="utf-8"><title>Event Ticketing</title></head>
-  <body><h1>Event Ticketing</h1></body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Events | Ticketing</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/index.html" aria-label="Ticketing home">
+        <span class="brand-mark" aria-hidden="true">T</span>
+        <span>Ticketing</span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="main-nav__active" href="/index.html">Discover</a>
+        <a href="/index.html#events">Events</a>
+      </nav>
+      <a class="header-action" href="/index.html#filters">Find tickets</a>
+    </header>
+    <main id="app" class="page-shell"></main>
+    <script type="module" src="/js/pages/home.js"></script>
+  </body>
 </html>
